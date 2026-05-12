@@ -15,7 +15,7 @@ pipeline {
 
         stage('Unit Tests') {
             steps {
-                dir('services/web-frontend') {
+                dir('web-frontend') {
                     sh 'npm install'
                     sh 'npm test || echo "no tests yet"'
                 }
@@ -25,15 +25,15 @@ pipeline {
         stage('Build & Push Image') {
             steps {
                 withCredentials([
-                    usernamePassword(credentialsId: 'aws-creds',
+                    usernamePassword(credentialsId: 'AWS_Credentials',
                                      usernameVariable: 'AWS_ACCESS_KEY_ID',
                                      passwordVariable: 'AWS_SECRET_ACCESS_KEY'),
                     string(credentialsId: 'aws-region',      variable: 'AWS_REGION'),
                     string(credentialsId: 'aws-account-id',  variable: 'AWS_ACCOUNT_ID'),
-                    string(credentialsId: 'frontend-ecr-repo', variable: 'ECR_REPO')
+                    string(credentialsId: 'web-frontend', variable: 'ECR_REPO')
                 ]) {
 
-                    dir('services/web-frontend') {
+                    dir('web-frontend') {
                         sh """
                         echo "Logging into ECR..."
                         aws ecr get-login-password --region $AWS_REGION \
@@ -59,7 +59,7 @@ pipeline {
                     file(credentialsId: 'eks-kubeconfig', variable: 'KUBECONFIG')
                 ]) {
 
-                    dir('services/web-frontend/k8s') {
+                    dir('web-frontend/k8s') {
                         sh """
                         echo "Applying ConfigMap and Secrets..."
                         kubectl apply -f configmap.yaml
