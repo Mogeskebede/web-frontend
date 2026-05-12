@@ -13,31 +13,31 @@ pipeline {
             }
         }
 
-        stage('Build & Pubat Image') {
+        stage('Build & Push Image') {
             steps {
                 withCredentials([
-                    usernamePassword(credentialsId: 'AWS_Credentials',
-                                     usernameVariable: 'AWS_ACCESS_KEY_ID',
-                                     passwordVariable: 'AWS_SECRET_ACCESS_KEY'),
-                    string(credentialsId: 'aws-region',      variable: 'AWS_REGION'),
-                    string(credentialsId: 'aws-account-id',  variable: 'AWS_ACCOUNT_ID'),
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'AWS_Credentials'],
+                    string(credentialsId: 'aws-region', variable: 'AWS_REGION'),
+                    string(credentialsId: 'aws-account-id', variable: 'AWS_ACCOUNT_ID'),
                     string(credentialsId: 'web-frontend', variable: 'ECR_REPO')
                 ]) {
 
                     dir('web-frontend') {
                         bat """
-                        echo "Logging into ECR..."
-                        aws ecr get-login-password --region $AWS_REGION \
-                          | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                        echo Logging into ECR...
 
-                        echo "Building Docker image..."
-                        docker build -t web-frontend:$IMAGE_TAG .
+                        aws ecr get-login-password --region %AWS_REGION% ^
+                        | docker login --username AWS --password-stdin %AWS_ACCOUNT_ID%.dkr.ecr.%AWS_REGION%.amazonaws.com
 
-                        echo "Tagging image..."
-                        docker tag web-frontend:$IMAGE_TAG $ECR_REPO:$IMAGE_TAG
+                        echo Building Docker image...
+                        docker build -t web-frontend:%IMAGE_TAG% .
 
-                        echo "Pubating image to ECR..."
-                        docker pubat $ECR_REPO:$IMAGE_TAG
+                        echo Tagging Docker image...
+                        docker tag web-frontend:%IMAGE_TAG% %ECR_REPO%:%IMAGE_TAG%
+
+                        echo Pushing Docker image...
+                        docker push %ECR_REPO%:%IMAGE_TAG%
                         """
                     }
                 }
@@ -47,29 +47,39 @@ pipeline {
         stage('Deploy to EKS') {
             steps {
                 withCredentials([
-                    file(credentialsId: 'eks-kubeconfig', variable: 'KUBECONFIG')
+                    file(credentialsId: 'eks-kubeconfig', variable: 'KUBECONFIG'),
+                    string(credentialsId: 'web-frontend', variable: 'ECR_REPO')
                 ]) {
 
                     dir('web-frontend/k8s') {
                         bat """
-                        echo "Applying ConfigMap and Secrets..."
+                        echo Applying Kubernetes manifests...
+
                         kubectl apply -f configmap.yaml
                         kubectl apply -f secrets.yaml
-
-                        echo "Applying Deployment and Service..."
                         kubectl apply -f deployment.yaml
                         kubectl apply -f service.yaml
 
-                        echo "Updating image in Deployment..."
-                        kubectl set image deployment/web-frontend \
-                          web-frontend=$ECR_REPO:$IMAGE_TAG \
+                        echo Updating image in deployment...
+                        kubectl set image deployment/web-frontend ^
+                          web-frontend=%ECR_REPO%:%IMAGE_TAG% ^
                           -n orders-platform
 
-                        echo "Deployment complete."
+                        echo Deployment complete.
                         """
                     }
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully'
+        }
+
+        failure {
+            echo 'Pipeline failed Check logs'
         }
     }
 }
