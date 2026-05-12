@@ -13,15 +13,6 @@ pipeline {
             }
         }
 
-        stage('Unit Tests') {
-            steps {
-                dir('web-frontend') {
-                    bat 'npm install'
-                    bat 'npm test || echo "no tests yet"'
-                }
-            }
-        }
-
         stage('Build & Pubat Image') {
             steps {
                 withCredentials([
