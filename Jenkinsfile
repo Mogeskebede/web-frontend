@@ -7,9 +7,32 @@ pipeline {
 
     stages {
 
-        stage('Checkout') {
+        stage('Checkout Source') {
             steps {
-                git branch: 'main', url: 'https://github.com/Mogeskebede/web-frontend.git'
+                // Use Jenkins built-in SCM checkout (fast + clean)
+                checkout scm
+            }
+        }
+
+        stage('Verify AWS Credentials') {
+            steps {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'AWS_Credentials'],
+                    string(credentialsId: 'aws-region', variable: 'AWS_REGION')
+                ]) {
+
+                    bat """
+                    echo Checking AWS identity...
+
+                    aws sts get-caller-identity
+
+                    IF %ERRORLEVEL% NEQ 0 (
+                        echo AWS credentials are INVALID or expired
+                        exit /b 1
+                    )
+                    """
+                }
             }
         }
 
@@ -29,6 +52,11 @@ pipeline {
 
                         aws ecr get-login-password --region %AWS_REGION% ^
                         | docker login --username AWS --password-stdin %AWS_ACCOUNT_ID%.dkr.ecr.%AWS_REGION%.amazonaws.com
+
+                        IF %ERRORLEVEL% NEQ 0 (
+                            echo ECR login failed
+                            exit /b 1
+                        )
 
                         echo Building Docker image...
                         docker build -t web-frontend:%IMAGE_TAG% .
@@ -75,11 +103,11 @@ pipeline {
 
     post {
         success {
-            echo 'Pipeline completed successfully'
+            echo "Pipeline completed successfully"
         }
 
         failure {
-            echo 'Pipeline failed Check logs'
+            echo "Pipeline failed - check logs"
         }
     }
 }
