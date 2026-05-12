@@ -16,13 +16,13 @@ pipeline {
         stage('Unit Tests') {
             steps {
                 dir('web-frontend') {
-                    sh 'npm install'
-                    sh 'npm test || echo "no tests yet"'
+                    bat 'npm install'
+                    bat 'npm test || echo "no tests yet"'
                 }
             }
         }
 
-        stage('Build & Push Image') {
+        stage('Build & Pubat Image') {
             steps {
                 withCredentials([
                     usernamePassword(credentialsId: 'AWS_Credentials',
@@ -34,7 +34,7 @@ pipeline {
                 ]) {
 
                     dir('web-frontend') {
-                        sh """
+                        bat """
                         echo "Logging into ECR..."
                         aws ecr get-login-password --region $AWS_REGION \
                           | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
@@ -45,8 +45,8 @@ pipeline {
                         echo "Tagging image..."
                         docker tag web-frontend:$IMAGE_TAG $ECR_REPO:$IMAGE_TAG
 
-                        echo "Pushing image to ECR..."
-                        docker push $ECR_REPO:$IMAGE_TAG
+                        echo "Pubating image to ECR..."
+                        docker pubat $ECR_REPO:$IMAGE_TAG
                         """
                     }
                 }
@@ -60,7 +60,7 @@ pipeline {
                 ]) {
 
                     dir('web-frontend/k8s') {
-                        sh """
+                        bat """
                         echo "Applying ConfigMap and Secrets..."
                         kubectl apply -f configmap.yaml
                         kubectl apply -f secrets.yaml
