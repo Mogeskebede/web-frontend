@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: orders-platform
+data:
+  ORDERS_SERVICE_URL: "http://orders-api.orders-platform.svc.cluster.local:8000"
+  INVENTORY_SERVICE_URL: "http://inventory-api.orders-platform.svc.cluster.local:5000"
