@@ -3,27 +3,21 @@ pipeline {
 
     environment {
         IMAGE_NAME = "mogeshailu/web-frontend"
-        IMAGE_TAG  = "build-${env.BUILD_NUMBER}"
+        IMAGE_TAG  = "build-${BUILD_NUMBER}"
     }
 
     stages {
 
-        stage('Checkout Source') {
-            steps {
-                checkout scm
-            }
-        }
 
         stage('Verify Docker') {
             steps {
-                bat """
-                docker version
-
-                IF %ERRORLEVEL% NEQ 0 (
-                    echo Docker is not running
-                    exit /b 1
-                )
-                """
+                powershell '''
+                    docker version
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Host "Docker is not running"
+                        exit 1
+                    }
+                '''
             }
         }
 
@@ -36,17 +30,18 @@ pipeline {
                 )]) {
 
                     powershell '''
-                    Write-Host "Logging into Docker Hub..."
+                        Write-Host "Logging into Docker Hub..."
 
-                    $password = $env:DOCKER_PASS
-                    $password | docker login -u $env:DOCKER_USER --password-stdin
+                        $securePass = $env:DOCKER_PASS
 
-                    if ($LASTEXITCODE -ne 0) {
-                        Write-Host "Docker Hub login failed"
-                        exit 1
-                    }
+                        docker login -u $env:DOCKER_USER --password-stdin <<< $securePass
 
-                    Write-Host "Docker Hub login successful"
+                        if ($LASTEXITCODE -ne 0) {
+                            Write-Host "Docker Hub login failed"
+                            exit 1
+                        }
+
+                        Write-Host "Docker Hub login successful"
                     '''
                 }
             }
@@ -54,54 +49,51 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
+                powershell '''
+                    Write-Host "Building Docker image..."
 
-                bat """
-                echo Building Docker image...
+                    docker build -t $env:IMAGE_NAME:$env:IMAGE_TAG .
 
-                docker build -t %IMAGE_NAME%:%IMAGE_TAG% .
-
-                IF %ERRORLEVEL% NEQ 0 (
-                    echo Docker build failed
-                    exit /b 1
-                )
-                """
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Host "Docker build failed"
+                        exit 1
+                    }
+                '''
             }
         }
 
         stage('Push Docker Image') {
             steps {
+                powershell '''
+                    Write-Host "Pushing Docker image..."
 
-                bat """
-                echo Pushing Docker image...
+                    docker push $env:IMAGE_NAME:$env:IMAGE_TAG
 
-                docker push %IMAGE_NAME%:%IMAGE_TAG%
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Host "Docker push failed"
+                        exit 1
+                    }
 
-                IF %ERRORLEVEL% NEQ 0 (
-                    echo Docker push failed
-                    exit /b 1
-                )
-
-                echo Image pushed successfully:
-                echo %IMAGE_NAME%:%IMAGE_TAG%
-                """
+                    Write-Host "Image pushed successfully:"
+                    Write-Host "$env:IMAGE_NAME:$env:IMAGE_TAG"
+                '''
             }
         }
 
         stage('Tag Latest Image') {
             steps {
+                powershell '''
+                    Write-Host "Tagging latest image..."
 
-                bat """
-                echo Tagging latest image...
+                    docker tag $env:IMAGE_NAME:$env:IMAGE_TAG $env:IMAGE_NAME:latest
 
-                docker tag %IMAGE_NAME%:%IMAGE_TAG% %IMAGE_NAME%:latest
+                    docker push $env:IMAGE_NAME:latest
 
-                docker push %IMAGE_NAME%:latest
-
-                IF %ERRORLEVEL% NEQ 0 (
-                    echo Latest image push failed
-                    exit /b 1
-                )
-                """
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Host "Latest image push failed"
+                        exit 1
+                    }
+                '''
             }
         }
     }
@@ -110,9 +102,7 @@ pipeline {
 
         success {
             echo "Pipeline completed successfully"
-
-            echo "Docker Image:"
-            echo "${IMAGE_NAME}:${IMAGE_TAG}"
+            echo "Docker Image: ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
         }
 
         failure {
@@ -120,9 +110,7 @@ pipeline {
         }
 
         always {
-            bat """
-            docker logout
-            """
+            powershell 'docker logout'
         }
     }
 }
