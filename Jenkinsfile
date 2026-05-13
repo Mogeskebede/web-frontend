@@ -29,24 +29,25 @@ pipeline {
 
         stage('Docker Hub Login') {
             steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'dockerhub-creds',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )
-                ]) {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
 
-                    bat """
-                    echo Logging into Docker Hub...
+                    powershell '''
+                    Write-Host "Logging into Docker Hub..."
 
-                    echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
+                    $password = $env:DOCKER_PASS
+                    $password | docker login -u $env:DOCKER_USER --password-stdin
 
-                    IF %ERRORLEVEL% NEQ 0 (
-                        echo Docker Hub login failed
-                        exit /b 1
-                    )
-                    """
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Host "Docker Hub login failed"
+                        exit 1
+                    }
+
+                    Write-Host "Docker Hub login successful"
+                    '''
                 }
             }
         }
