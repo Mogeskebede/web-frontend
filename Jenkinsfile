@@ -32,9 +32,15 @@ pipeline {
                     powershell '''
                         Write-Host "Logging into Docker Hub..."
 
-                        $securePass = $env:DOCKER_PASS
+                        $user = $env:DOCKER_USER
+                        $token = $env:DOCKER_PASS
 
-                        $securePass | docker login -u $env:DOCKER_USER --password-stdin
+                        # DEBUG (safe)
+                        Write-Host "User: $user"
+                        Write-Host "Token length: $($token.Length)"
+
+                        # IMPORTANT: correct login method for PAT
+                        $token | docker login -u $user --password-stdin
 
                         if ($LASTEXITCODE -ne 0) {
                             Write-Host "Docker Hub login failed"
@@ -46,22 +52,6 @@ pipeline {
                 }
             }
         }
-
-        stage('Build Docker Image') {
-            steps {
-                powershell '''
-                    Write-Host "Building Docker image..."
-
-                    docker build -t $env:IMAGE_NAME:$env:IMAGE_TAG .
-
-                    if ($LASTEXITCODE -ne 0) {
-                        Write-Host "Docker build failed"
-                        exit 1
-                    }
-                '''
-            }
-        }
-
         stage('Push Docker Image') {
             steps {
                 powershell '''
