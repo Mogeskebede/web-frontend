@@ -34,7 +34,7 @@ pipeline {
 
                         $securePass = $env:DOCKER_PASS
 
-                        docker login -u $env:DOCKER_USER --password-stdin <<< $securePass
+                        $securePass | docker login -u $env:DOCKER_USER --password-stdin
 
                         if ($LASTEXITCODE -ne 0) {
                             Write-Host "Docker Hub login failed"
