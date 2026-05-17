@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: web-frontend
-        image: <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/web-frontend:latest
+        image: mogeshailu/web-frontend:v1
         ports:
         - containerPort: 3000
         envFrom:
